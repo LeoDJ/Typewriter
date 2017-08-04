@@ -9,8 +9,9 @@ const byte outputPinLength = sizeof(outputPin) / sizeof(outputPin[0]);
 unsigned long lastMicros=0, isrMicros, nextMicros;
 byte keys[8];
 bool readyToProcess = false;
-byte sendX, sendY, sendYIdx, sendYHigh, sendYLow, sendModifier, sendCounter = 0;
-bool armInt = true;
+byte sendX, sendY, sendYIdx, sendYHigh, sendYLow;
+volatile byte sendModifier, sendCounter = 0;
+volatile bool armInt = true;
 //bool didRun = false;
 char toPrintBuf[128];
 byte toPrintIndex=0, curPrintIndex=0;
@@ -77,10 +78,21 @@ D07 - 5
 
 void isr() {
   //do magic stuff
-  byte res = 0;
-  for(byte i = 0; i < inputPinLength; i++) { //should be quite fast on teensy. TODO: test this
+  pinMode(2, INPUT);
+  volatile byte res = 0;
+  res |= digitalReadFast(inputPin[0]) << 0;
+  res |= digitalReadFast(inputPin[1]) << 1;
+  res |= digitalReadFast(inputPin[2]) << 2;
+  res |= digitalReadFast(inputPin[3]) << 3;
+  res |= digitalReadFast(inputPin[4]) << 4;
+  res |= digitalReadFast(inputPin[5]) << 5;
+  res |= digitalReadFast(inputPin[6]) << 6;
+  res |= digitalReadFast(inputPin[7]) << 7;
+  res = ~res;
+
+  /*for(byte i = 0; i < inputPinLength; i++) { //should be quite fast on teensy. TODO: test this
     res |= (!digitalReadFast(inputPin[i])) << i; //invert due to active low pin
-  }
+}*/
   if((res & B00000001) != 0 && armInt && sendModifier == 1) {
     pinMode(outputPin[0], OUTPUT); //send shift key
     armInt = false;
@@ -92,8 +104,10 @@ void isr() {
   }
   else if(res == 0) {
     armInt = true;
-    pinMode(outputPin[sendYIdx], INPUT); //hopefully sendYIdx is still set to the right value, else need to set all pins to input
+    for(byte i = 0; i < outputPinLength; i++) //speed does not matter here
+        pinMode(outputPin[i], INPUT); 
   }
+  pinMode(2, OUTPUT);
 }
 /*
 void isrClear() {//reset pulled low pin
@@ -124,11 +138,16 @@ void setup() {
     toPrintBuf[i] = 0;
   }
   Serial.begin(115200);
-  digitalWrite(2, LOW);
-  for(byte i = 0; i < 50; i++) { //test speed of pinMode function
+  /*digitalWrite(2, LOW);
+  pinMode(2, OUTPUT);
+  for(byte i = 0; i < 250; i++) { //test speed of pinMode function
+    digitalWriteFast(2, HIGH);
+    digitalWriteFast(2, LOW);
+  }
+  for(byte i = 0; i < 250; i++) { //test speed of pinMode function
     pinMode(2, INPUT);
     pinMode(2, OUTPUT);
-  }
+}*/
 }
 
 
@@ -168,6 +187,7 @@ void loop() {
             {
               noInterrupts();
               found = true;
+              Serial.println(String(x) + String(y));
               sendModifier = 1; //shift keys
               sendKeyRaw(x, y);
               interrupts();

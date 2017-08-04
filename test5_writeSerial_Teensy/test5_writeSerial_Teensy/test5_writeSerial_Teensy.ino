@@ -94,8 +94,18 @@ void isr() {
     armInt = true;
     pinMode(outputPin[sendYIdx], INPUT); //hopefully sendYIdx is still set to the right value, else need to set all pins to input
   }
-
 }
+/*
+void isrClear() {//reset pulled low pin
+    byte res = 0;
+    for(byte i = 0; i < inputPinLength; i++) { //should be quite fast on teensy. TODO: test this
+      res |= (!digitalReadFast(inputPin[i])) << i; //invert due to active low pin
+    }
+    if(res == 0) { //probably unneded, if a pin rises again, because of the protocol
+      armInt = true;
+      pinMode(outputPin[sendYIdx], INPUT); //hopefully sendYIdx is still set to the right value, else need to set all pins to input
+    }
+}*/
 
 
 
@@ -105,7 +115,8 @@ void setup() {
   for (byte i = 0; i < inputPinLength; i++)
   {
     pinMode(inputPin[i], INPUT_PULLUP);
-    attachInterrupt(inputPin[i], isr, FALLING);
+    attachInterrupt(inputPin[i], isr, CHANGE);
+    //attachInterrupt(inputPin[i], isrClear, RISING);
     //pciSetup(i);
   }
   for(byte i = 0; i < sizeof(toPrintBuf); i++) //clear buffer array

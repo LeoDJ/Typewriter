@@ -1,0 +1,32 @@
+{
+  "name": "typewriter_bridge",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/leodj/typewriter.git"
+  },
+  "keywords": [
+    "esp8266",
+    "typewriter",
+    "teensy",
+    "websocket",
+    "arduino"
+  ],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/leodj/typewriter/issues"
+  },
+  "homepage": "https://github.com/leodj/typewriter#readme",
+  "dependencies": {
+    "express": "^4.15.3",
+    "socket.io": "^2.0.3",
+    "twitter": "^1.7.1",
+    "websocket": "^1.0.24"
+  }
+}

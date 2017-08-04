@@ -4,14 +4,15 @@ const byte inputPin[] =  { 5,  6,  7,  8,  9, 10, 11, 12};
 const byte outputPin[] = {20, 19, 18, 17, 16, 15, 14, 13};
 const byte inputPinLength = sizeof(inputPin) / sizeof(inputPin[0]);
 const byte outputPinLength = sizeof(outputPin) / sizeof(outputPin[0]);
+bool lastInputState[inputPinLength];
 
 
 unsigned long lastMicros=0, isrMicros, nextMicros;
 byte keys[8];
 bool readyToProcess = false;
 byte sendX, sendY, sendYIdx, sendYHigh, sendYLow;
-volatile byte sendModifier, sendCounter = 0;
-volatile bool armInt = true;
+/*volatile*/ byte sendModifier, sendCounter = 0;
+/*volatile*/ bool armInt = true;
 //bool didRun = false;
 char toPrintBuf[128];
 byte toPrintIndex=0, curPrintIndex=0;
@@ -76,10 +77,10 @@ D06 - 21
 D07 - 5
 */
 
-void isr() {
+inline FASTRUN void isr() {
   //do magic stuff
   pinMode(2, INPUT);
-  volatile byte res = 0;
+  byte res = 0;
   res |= digitalReadFast(inputPin[0]) << 0;
   res |= digitalReadFast(inputPin[1]) << 1;
   res |= digitalReadFast(inputPin[2]) << 2;
@@ -105,7 +106,7 @@ void isr() {
   else if(res == 0) {
     armInt = true;
     for(byte i = 0; i < outputPinLength; i++) //speed does not matter here
-        pinMode(outputPin[i], INPUT); 
+        pinMode(outputPin[i], INPUT);
   }
   pinMode(2, OUTPUT);
 }
@@ -122,10 +123,35 @@ void isrClear() {//reset pulled low pin
 }*/
 
 
+/*
+ * commented out function portcd_interrupt
+ * in file cores/teensy3/pins_teensy.c
+ * @L310 - L332
+ */
+
+/*
+static void portcd_interrupt() {
+    if((PINC | B00100111) != 255 || (PIND | B01100011) != 255) //if one went low
+        isr();
+
+    pinMode(20, OUTPUT);
+    pinMode(20, INPUT);
+}*/
+/*
+void portd_isr() {
+    if((PIND | B01100011) != 255)
+        isr();
+}
+*/
+void emptyIsr() {
+
+}
 
 void setup() {
   // put your setup code here, to run once:
   pinMode(4, OUTPUT);
+  /*attachInterruptVector(IRQ_PORTC, isrC);
+  attachInterruptVector(IRQ_PORTD, isrD);*/
   for (byte i = 0; i < inputPinLength; i++)
   {
     pinMode(inputPin[i], INPUT_PULLUP);

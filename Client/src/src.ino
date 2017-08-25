@@ -82,14 +82,7 @@ void webSocketEvent(WStype_t type, uint8_t * payload, size_t lenght) {
                 }
 
                 if(array[0] == "printText") {
-                    String jsonString = array[1];
-                    //jsonString.replace("\\", "");
-                    JsonObject& root = jsonBuffer.parseObject(jsonString);
-                    if (!root.success()) {
-                        USE_SERIAL.printf("parseObject() failed");
-                        return;
-                    }
-                    result = (const char*)root["text"];
+                    result = (const char*)array[1];
                 }
             }
 			// send message to server

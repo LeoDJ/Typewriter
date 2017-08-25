@@ -1,7 +1,7 @@
 #include <Arduino.h>
 
-const byte inputPin[] =  { 5,  6,  7,  8,  9, 10, 11, 12};
-const byte outputPin[] = {20, 19, 18, 17, 16, 15, 14, 13};
+const byte inputPin[] =  { 5,  6,  7,  8,  9, 10, 11, 12}; //MSB first
+const byte outputPin[] = {13, 14, 15, 16, 17, 18, 19, 20}; //LSB first
 const byte inputPinLength = sizeof(inputPin) / sizeof(inputPin[0]);
 const byte outputPinLength = sizeof(outputPin) / sizeof(outputPin[0]);
 bool lastInputState[inputPinLength];
@@ -36,13 +36,26 @@ char keysSmall[8][8] = {
 // 0     1     2     3     4     5     6     7
 char keysShift[8][8] = {
 {  0 ,   0 ,   0 ,   0 ,   0 ,   0 ,   0 ,   0 }, //0 | 7
-{  0 , '\'', '\t',  ' ', '\n',   0 ,   0 , '\b'}, //1 | 6
+{  0 ,  '°', '\t',  ' ', '\n',   0 ,   0 , '\b'}, //1 | 6
 {  0 ,  '`',  '?',   0 ,  'Ä',   0 ,  'Ü',  '*'}, //2 | 5
 { '_',  '=',  ')',  ':',  'Ö',  'P',  'L',  'O'}, //3 | 4
 { 'Y',  'B',  'N',  'X',  'C',  'V',  ';',  'M'}, //4 | 3
 { 'A',  'G',  'H',  'S',  'D',  'F',  'K',  'J'}, //5 | 2
 { 'Q',  'T',  'Z',  'W',  'E',  'R',  'I',  'U'}, //6 | 1
 { '!',  '%',  '&', '\"',  '§',  '$',  '(',  '/'}  //7 | 0
+};
+
+// 7     6     5     4     3     2     1     0
+// 0     1     2     3     4     5     6     7
+char keysMod[8][8] = {
+{  0 ,   0 ,   0 ,   0 ,   0 ,   0 ,   0 ,   0 }, //0 | 7
+{  0 ,  '^',   0 ,  ' ',   0 ,   0 ,   0 ,   0 }, //1 | 6
+{  0 ,   0 ,   0 ,   0 ,   0 ,   0 ,   0 ,   0 }, //2 | 5
+{  0 ,   0 ,   0 ,   0 ,   0 ,   0 ,   0 ,   0 }, //3 | 4
+{ '<',   0 ,  '#',  '>',   0 ,   0 ,   0 ,  'µ'}, //4 | 3
+{  0 ,   0 ,   0 ,   0 ,   0 ,   0 ,   0 ,   0 }, //5 | 2
+{  0 ,   0 ,   0 ,   0 ,   0 ,   0 ,   0 ,   0 }, //6 | 1
+{ '|',   0 ,   0 ,  '²',  '³',   0 ,   0 ,   0 }  //7 | 0
 };
 
 /* Teensy 3.2 Port to PIND
@@ -80,28 +93,60 @@ D07 - 5
 inline FASTRUN void isr() {
   //do magic stuff
   pinMode(2, INPUT);
-  byte res = 0;
-  res |= digitalReadFast(inputPin[0]) << 0;
-  res |= digitalReadFast(inputPin[1]) << 1;
-  res |= digitalReadFast(inputPin[2]) << 2;
-  res |= digitalReadFast(inputPin[3]) << 3;
-  res |= digitalReadFast(inputPin[4]) << 4;
-  res |= digitalReadFast(inputPin[5]) << 5;
-  res |= digitalReadFast(inputPin[6]) << 6;
-  res |= digitalReadFast(inputPin[7]) << 7;
-  res = ~res;
+
+  byte numberOfPins;
+  bool pinActive = false;
+  //unsigned long triggeredMicros = micros();
+  do {
+      numberOfPins =    digitalReadFast(inputPin[0]) + //count number of activated pins
+                        digitalReadFast(inputPin[1]) +
+                        digitalReadFast(inputPin[2]) +
+                        digitalReadFast(inputPin[3]) +
+                        digitalReadFast(inputPin[4]) +
+                        digitalReadFast(inputPin[5]) +
+                        digitalReadFast(inputPin[6]) +
+                        digitalReadFast(inputPin[7]);
+    numberOfPins = 8-numberOfPins;
+
+    //Serial1.write(numberOfPins);
+    if(curMillis < 100) //if interrupt gets triggered too fast after reboot, pins won't read correctly
+        break;
+    //if(micros() - triggeredMicros > 3)
+    //    break;
+    } while (numberOfPins > 1); //glitch filter
+
+    byte res = 0;
+    res |= digitalReadFast(inputPin[0]) << 0;
+    res |= digitalReadFast(inputPin[1]) << 1;
+    res |= digitalReadFast(inputPin[2]) << 2;
+    res |= digitalReadFast(inputPin[3]) << 3;
+    res |= digitalReadFast(inputPin[4]) << 4;
+    res |= digitalReadFast(inputPin[5]) << 5;
+    res |= digitalReadFast(inputPin[6]) << 6;
+    res |= digitalReadFast(inputPin[7]) << 7;
+    res = ~res;
+    //Serial1.write(res);
+
 
   /*for(byte i = 0; i < inputPinLength; i++) { //should be quite fast on teensy. TODO: test this
     res |= (!digitalReadFast(inputPin[i])) << i; //invert due to active low pin
 }*/
-  if((res & B00000001) != 0 && armInt && sendModifier == 1) {
-    pinMode(outputPin[0], OUTPUT); //send shift key
+  if((res & B00000001) != 0 && armInt) {
+    if(sendModifier == 1)
+        pinMode(outputPin[0], OUTPUT); //send shift key
+    else if(sendModifier == 2)
+        pinMode(outputPin[1], OUTPUT); //send shift key
     armInt = false;
   }
   else if((res & sendX) != 0 && armInt) {
     pinMode(outputPin[sendYIdx], OUTPUT); //hopefully standard pinMode() will be fast enough
     sendCounter++;
     armInt = false;
+    /*digitalWriteFast(21, HIGH);
+    delayMicroseconds(1);
+    digitalWriteFast(21, LOW);*/
+    Serial1.write(res);
+    Serial1.write(sendX);
   }
   else if(res == 0) {
     armInt = true;
@@ -150,8 +195,17 @@ void emptyIsr() {
 void setup() {
   // put your setup code here, to run once:
   pinMode(4, OUTPUT);
+  pinMode(21, OUTPUT);
+
+  Serial.begin(115200);
+  Serial1.begin(115200);
   /*attachInterruptVector(IRQ_PORTC, isrC);
   attachInterruptVector(IRQ_PORTD, isrD);*/
+
+  for(byte i = 0; i < sizeof(toPrintBuf); i++) //clear buffer array
+  {
+    toPrintBuf[i] = 0;
+  }
   for (byte i = 0; i < inputPinLength; i++)
   {
     pinMode(inputPin[i], INPUT_PULLUP);
@@ -159,11 +213,6 @@ void setup() {
     //attachInterrupt(inputPin[i], isrClear, RISING);
     //pciSetup(i);
   }
-  for(byte i = 0; i < sizeof(toPrintBuf); i++) //clear buffer array
-  {
-    toPrintBuf[i] = 0;
-  }
-  Serial.begin(115200);
   /*digitalWrite(2, LOW);
   pinMode(2, OUTPUT);
   for(byte i = 0; i < 250; i++) { //test speed of pinMode function
@@ -188,7 +237,7 @@ void loop() {
     didRun = false;
   }
 
-  if(curMillis - lastSendKeyMillis > 50)
+  if(curMillis - lastSendKeyMillis > 100)
   {
     lastSendKeyMillis = curMillis;
     if(toPrintIndex > 0)
@@ -196,11 +245,28 @@ void loop() {
       char c = toPrintBuf[curPrintIndex];
       if (c != 0)
       {
-        bool found = false;
+        byte found = 0;
         for(byte x = 0; x < 8; x++)
         {
           for(byte y = 0; y < 8; y++)
           {
+            if(keysSmall[x][y] == c)
+                found = 1;
+            else if(keysShift[x][y] == c)
+                found = 2;
+            else if(keysMod[x][y] == c)
+                found = 3;
+
+            if(found) {
+                noInterrupts();
+                found = true;
+                Serial.println(String(x) + String(y));
+                if(found > 1)
+                    sendModifier = found - 1; //modifier type is 1 for shift or 2 for MOD
+                sendKeyRaw(x, y);
+                interrupts();
+                break;
+            }/*
             if(keysSmall[x][y] == c)
             {
               noInterrupts();
@@ -217,10 +283,8 @@ void loop() {
               sendModifier = 1; //shift keys
               sendKeyRaw(x, y);
               interrupts();
-            }
+          }*/
           }
-          if(found)
-            break;
         }
         if(!found)
         {
@@ -236,6 +300,7 @@ void loop() {
         }
         toPrintIndex = 0;
         curPrintIndex = 0;
+        Serial1.print('\x06');
       }
     }
   }
@@ -256,6 +321,12 @@ void loop() {
     toPrintBuf[toPrintIndex] = c;
     toPrintIndex++;
   }
+  if(Serial1.available())
+  {
+    char c = Serial1.read();
+    toPrintBuf[toPrintIndex] = c;
+    toPrintIndex++;
+  }
 }
 
 void sendKeyRaw(byte x, byte y)
@@ -270,7 +341,8 @@ void sendKeyRaw(byte x, byte y)
   }
   else
   {
-    sendX = 255;
+    //sendX = 255;
+    sendX = 0; //have to reset senX to 0, else it would trigger everytime
     sendY = 0;
     sendYIdx = 255;
     sendYLow = 0;

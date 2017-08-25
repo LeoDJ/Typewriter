@@ -1,8 +1,7 @@
-/*
- * WebSocketClientSocketIO.ino
- *
- *  Created on: 06.06.2016
- *
+/* Used libraries:
+ * https://github.com/esp8266/Arduino
+ * https://github.com/Links2004/arduinoWebSockets
+ * https://github.com/bblanchon/ArduinoJson
  */
 
 #include <Arduino.h>
@@ -21,7 +20,7 @@ WebSocketsClient webSocket;
 
 const byte ledPin = D0;
 
-
+#define TTY_SERIAL Serial
 #define USE_SERIAL Serial1
 
 #define MESSAGE_INTERVAL 30000
@@ -79,6 +78,18 @@ void webSocketEvent(WStype_t type, uint8_t * payload, size_t lenght) {
                     result += (const char*)root["userName"];
                     result += ") ";
                     result += (const char*)root["text"];
+
+                }
+
+                if(array[0] == "printText") {
+                    String jsonString = array[1];
+                    //jsonString.replace("\\", "");
+                    JsonObject& root = jsonBuffer.parseObject(jsonString);
+                    if (!root.success()) {
+                        USE_SERIAL.printf("parseObject() failed");
+                        return;
+                    }
+                    result = (const char*)root["text"];
                 }
             }
 			// send message to server
@@ -97,7 +108,7 @@ void webSocketEvent(WStype_t type, uint8_t * payload, size_t lenght) {
 
 void setup() {
     // USE_SERIAL.begin(921600);
-    Serial.begin(115200);
+    TTY_SERIAL.begin(115200);
     USE_SERIAL.begin(115200);
 
     //Serial.setDebugOutput(true);
@@ -113,7 +124,7 @@ void setup() {
           delay(1000);
       }
 
-    
+    WiFiMulti.addAP("FABLAB", "handfulofrain");
     WiFiMulti.addAP("Freifunk", "");
     WiFiMulti.addAP("CoworkingHN", "ilovecowohn");
 
@@ -122,8 +133,9 @@ void setup() {
         delay(100);
     }
 
-    //webSocket.beginSSL("192.168.178.74", 8001, "/socket.io/?EIO=3");
+    //webSocket.beginSocketIO("192.168.178.242", 8001);
     webSocket.beginSocketIO("gingerlabs.de", 58001);
+    //webSocket.beginSSL("192.168.178.74", 8001, "/socket.io/?EIO=3");
     //webSocket.setAuthorization("user", "Password"); // HTTP Basic Authorization
     webSocket.onEvent(webSocketEvent);
     pinMode(ledPin, OUTPUT);
@@ -134,9 +146,22 @@ void loop() {
 
     //error handling (too many messages, etc)
     if(result.length() > 0) {
-        Serial.println(result);
+        TTY_SERIAL.println(result);
         result = "";
     }
+
+    if(TTY_SERIAL.available()) {
+        char c = TTY_SERIAL.read();
+        if(c == '\x06');
+            webSocket.sendTXT("42[\"printDone\",{\"success:\":true}]");
+            //send ACK back
+    }
+
+    /*if(USE_SERIAL.available())
+      TTY_SERIAL.print((char)USE_SERIAL.read());
+
+    if(TTY_SERIAL.available())
+      TTY_SERIAL.print((char)TTY_SERIAL.read());*/
 
     if(isConnected) {
 

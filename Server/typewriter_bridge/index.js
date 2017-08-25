@@ -26,6 +26,7 @@ function printTweet() {
             let tweet = tweets.shift(); //get first element of array and remove it
             let msg = `(@${tweet.userName}) ${tweet.text}\n\n`; //build message string
             msg.replace('@', '(at)');
+            console.log("printing tweet \"" + msg + "\"");
             io.emit('printText', msg);
         }
     }
